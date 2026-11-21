@@ -101,8 +101,18 @@ class SMZDM(CheckIn):
                 "Accept-Encoding": "gzip, deflate, br",
             }
             response = requests.post(url=url, headers=headers).json()
-            response_info = requests.get(url=infourl, headers=headers).text
-            _ = requests.get(url=rewardurl, headers=headers).json()
+            # 个人页和抽奖信息只用于展示，失败时不该让整个签到任务失败。
+            # 个人页目前会重定向循环（requests 默认跟随重定向，超过 30 次
+            # 就抛 TooManyRedirects），这里捕获后用空值继续，正式签到照常跑。
+            try:
+                response_info = requests.get(url=infourl, headers=headers, timeout=30).text
+            except requests.exceptions.RequestException as e:
+                print(f"获取什么值得买个人信息失败，已跳过: {e}")
+                response_info = ""
+            try:
+                _ = requests.get(url=rewardurl, headers=headers, timeout=30).json()
+            except requests.exceptions.RequestException as e:
+                print(f"获取什么值得买抽奖信息失败，已跳过: {e}")
             name = (
                 str(
                     re.findall(
